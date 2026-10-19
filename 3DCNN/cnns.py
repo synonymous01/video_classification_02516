@@ -120,7 +120,11 @@ class CNN3D_Network(nn.Module):
             nn.Conv3d(128, 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1)),
             nn.BatchNorm3d(128),
             nn.ReLU(),
-            nn.MaxPool3d((1, 2, 2)) 
+            nn.MaxPool3d((1, 2, 2)),
+
+            nn.Conv3d(128, 128, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1)),
+            nn.BatchNorm3d(128),
+            nn.ReLU(),
         )
         
         
@@ -227,13 +231,13 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    transform = T.Compose([T.Resize((64, 64)), T.ToTensor()])
+    transform = T.Compose([T.Resize((64, 64)), T.RandomHorizontalFlip(p=0.5), T.RandomVerticalFlip(p=0.5), T.RandomRotation(270), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
     
     dataset_train = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=True)
     dataset_val = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=True)
 
-    dataloader_train = DataLoader(dataset_train, batch_size=8, shuffle=True, num_workers=2)
-    dataloader_val = DataLoader(dataset_val, batch_size=8, shuffle=False, num_workers=2)
+    dataloader_train = DataLoader(dataset_train, batch_size=15, shuffle=True, num_workers=2)
+    dataloader_val = DataLoader(dataset_val, batch_size=15, shuffle=False, num_workers=2)
 
     model = CNN3D_Network(num_classes=10).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
@@ -242,5 +246,5 @@ if __name__ == '__main__':
         model, optimizer, dataset_train, dataset_val, dataloader_train, dataloader_val, num_epochs=30
     )
 
-    save_plot(train_accs, val_accs, filename='cnn3d_results.png')
-    torch.save(model.state_dict(), './cnn3d_weights.pt')
+    save_plot(train_accs, val_accs, filename='cnn3d_results_norm.png')
+    torch.save(model.state_dict(), './cnn3d_weights_norm.pt')
