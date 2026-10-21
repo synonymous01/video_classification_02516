@@ -115,7 +115,7 @@ class EarlyFusionNetwork(nn.Module):
             nn.Linear(128 * 2 * 2, 256),
             nn.ReLU(),
             nn.Dropout(p=0.5),
-            nn.Linear(256, num_classes),
+            nn.Linear(256, num_classes)
         )
 
     def forward(self, x):
@@ -127,35 +127,36 @@ class EarlyFusionNetwork(nn.Module):
         x = torch.flatten(x, 1)          # [B, 512]
         return self.fully_connected(x)   # [B, num_classes]
 
+        
 class CNN3D_Network(nn.Module):
     def __init__(self, num_classes=10):
         super().__init__()
 
         self.convolutional = nn.Sequential(
-            nn.Conv3d(2, 32, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d((2, 2, 2)),
+            nn.Conv3d(3, 32, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm3d(32),
             nn.ReLU(),
-            nn.MaxPool3d(pool),
+            nn.MaxPool3d((2, 2, 2)),
 
             nn.Conv3d(32, 64, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d((2, 2, 2)),
+            nn.BatchNorm3d(64),
             nn.ReLU(),
-            nn.MaxPool3d(pool),
+            nn.MaxPool3d((2, 2, 2)),
 
             nn.Conv3d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d((1, 2, 2)),
+            nn.BatchNorm3d(128),
             nn.ReLU(),
-            nn.MaxPool3d(pool),
+            nn.MaxPool3d((1, 2, 2)),
 
             nn.Conv3d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm3d((1, 2, 2)),
+            nn.BatchNorm3d(128),
             nn.ReLU(),
-            nn.MaxPool3d(pool),
+            nn.MaxPool3d((1, 2, 2)),
         )
 
-        self.pool = nn.AdaptiveAvgPool3d((1, 2, 2))   
+        self.pool = nn.AdaptiveAvgPool3d((1, 2, 2))
 
-        self.fully_connected = nn.Sequential(          
+        self.fully_connected = nn.Sequential(
             nn.Linear(128 * 2 * 2, 256),
             nn.ReLU(),
             nn.Dropout(p=0.5),
