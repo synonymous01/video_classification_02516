@@ -9,18 +9,15 @@ import torchvision.transforms.functional as TF
 import random
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+
 current_working_dir = os.getcwd()
 root_dir = os.path.join(current_working_dir, "ucf101")
 root_dir = os.path.join(root_dir, "ufc10")
 
 class FrameImageDataset(torch.utils.data.Dataset):
-    def __init__(self, 
-    #root_dir='/work3/ppar/data/ucf101',
-    split='train', 
-    transform=None
-):
+    def __init__(self, split='train', transform=None):
         self.frame_paths = sorted(glob(f'{root_dir}/frames/{split}/*/*/*.jpg'))
-        self.df = pd.read_csv(f'{root_dir}//metadata/{split}.csv')
+        self.df = pd.read_csv(f'{root_dir}/metadata/{split}.csv')
         self.split = split
         self.transform = transform
        
@@ -51,20 +48,13 @@ class FrameImageDataset(torch.utils.data.Dataset):
         if self.stack_frames:
             frames = torch.stack(frames).permute(1, 0, 2, 3)
 
-
 class FrameVideoDataset(torch.utils.data.Dataset):
-    def __init__(self, 
-    split = 'train', 
-    transform = None,
-    stack_frames = True
-):
-
+    def __init__(self, split='train', transform=None, stack_frames=True):
         self.video_paths = sorted(glob(f'{root_dir}/videos/{split}/*/*.avi'))
         self.df = pd.read_csv(f'{root_dir}/metadata/{split}.csv')
         self.split = split
         self.transform = transform
         self.stack_frames = stack_frames
-        
         self.n_sampled_frames = 10
 
     def __len__(self):
@@ -94,7 +84,6 @@ class FrameVideoDataset(torch.utils.data.Dataset):
         if self.stack_frames:
             frames = torch.stack(frames).permute(1, 0, 2, 3)
 
-
         return frames, label
     
     def load_frames(self, frames_dir):
@@ -107,39 +96,21 @@ class FrameVideoDataset(torch.utils.data.Dataset):
         return frames
 
 class Network(nn.Module):
-    def __init__(self, num_frames=10):
-        super(Network, self).__init__()
-        
-        # EARLY FUSION: 3 canais (RGB) * 10 frames = 30 canais de entrada
-        in_channels = 3 * num_frames 
-        
-        self.convolutional = nn.Sequential(
-                # Muda o 3 original para in_channels (30)
-                nn.Conv2d(in_channels, 8, (3,3), stride=1, padding=1), 
-                nn.ReLU(),
-                nn.MaxPool2d((2,2)),
-                nn.Conv2d(8, 16, (3,3), stride=1, padding=1),
-                nn.ReLU(),
-                nn.MaxPool2d((2,2)),
-                nn.Conv2d(16, 32, (3,3), stride=1, padding=1),
-                nn.ReLU(),
-                nn.MaxPool2d((2,2)),
-                nn.Conv2d(32, 16, (3,3), stride=1, padding=1),
-                nn.ReLU(),
-                nn.Conv2d(16, 16, (3,3), stride=1, padding=1),
-                nn.ReLU(),
-        )
-
-        self.fully_connected = nn.Sequential(
-                # O cálculo 16*16*16 pode precisar de ajuste dependendo do MaxPool
-                # Para input 64x64, com 3 MaxPools, fica 64->32->16->8
-                # 16 canais * 8 altura * 8 largura = 1024
-                nn.Linear(16 * 8 * 8, 500), 
-                nn.ReLU(),
-                nn.Linear(500, 10), # Se UFC101 tiver 101 classes, muda o 2 para 101!
-                nn.Softmax(dim=1)
-        )
-
+    def __init__(self, num_classes=10):
+            super(Network, self).__init__()
+            # Extractor convolucional 2D ampliado y con Batch Normalization
+            self.convolutional = nn.Sequential(
+                       nn.Conv2d(30, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(), nn.MaxPool2d(2), # Fixed: 30 channels
+                       nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(), nn.MaxPool2d(2),
+                       nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(), nn.MaxPool2d(2),
+                       nn.Conv2d(128, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(), nn.MaxPool2d(2),
+                   )
+            self.pool = nn.AdaptiveAvgPool2d((2, 2))
+            self.fully_connected = nn.Sequential(
+                nn.Linear(128 * 2 * 2, 256), nn.ReLU(), nn.Dropout(0.5),
+                nn.Linear(256, num_classes),
+            )
+    
     def forward(self, x):
         # O x que chega aqui tem formato: [Batch, 3, 10, 64, 64]
         batch_size = x.size(0)
@@ -150,7 +121,9 @@ class Network(nn.Module):
         x = x.view(batch_size, -1, height, width) 
         
         x = self.convolutional(x)
+        x = self.pool(x)          
         x = x.view(batch_size, -1) # Flatten para fully connected
+
         x = self.fully_connected(x)
         return x
 
@@ -192,7 +165,7 @@ def save_model_weights(model, filepath='./model_weights.pt'):
 
 def load_model_weights(filepath='./model_weights.pt'):
     '''returns trained model weights from a .pt file'''
-    model = Network(num_frames=10)  # Lembra-te de passar num_frames=10 para instanciar a arquitetura certa!
+    model = Network(num_classes=10)  
     model.load_state_dict(torch.load(filepath, weights_only=True))
     model.eval()
     return model
@@ -211,7 +184,7 @@ def train_model_and_validate(model, optimizer, dataset_train, dataset_val, datal
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
-            loss = F.nll_loss(torch.log(output + 1e-8), target) # Added 1e-8 to prevent log(0) -inf errors
+            loss = F.cross_entropy(output, target)
             loss.backward()
             optimizer.step()
             
@@ -222,8 +195,8 @@ def train_model_and_validate(model, optimizer, dataset_train, dataset_val, datal
         val_correct = 0
         model.eval()
         for data, target in dataloader_val:
-            data, target = data.to(device), target.to(device) # Send target to device
-            with torch.no_grad(): # FIXED TYPO: was nograd()
+            data, target = data.to(device), target.to(device) 
+            with torch.no_grad(): 
                 output = model(data)
             predicted = output.argmax(1)
             val_correct += (target==predicted).sum().item()
@@ -234,7 +207,7 @@ def train_model_and_validate(model, optimizer, dataset_train, dataset_val, datal
         train_accuracies.append(train_acc)
         validation_accuracies.append(val_acc)
         
-        print(f"Epoch {epoch+1}/{num_epochs} - Accuracy train: {100*train_acc:.1f}%\t validation: {100*val_acc:.1f}%")
+        print(f"Epoch {epoch+1}/{num_epochs} Accuracy train: {100*train_acc:.1f}%\t validation: {100*val_acc:.1f}%")
         
     return train_accuracies, validation_accuracies
 
@@ -245,7 +218,7 @@ def test_model(model, dataloader_test, dataset_test):
     model.eval()
     for data, target in dataloader_test:
         data, target = data.to(device), target.to(device)
-        with torch.no_grad(): # FIXED TYPO
+        with torch.no_grad(): 
             output = model(data)
         predicted = output.argmax(1)
         test_correct += (target==predicted).sum().item()
@@ -270,14 +243,13 @@ if __name__ == '__main__':
     transform = T.Compose([
         T.Resize((64, 64)), 
         T.ToTensor(),
-        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) # Normalização adicionada aqui
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) 
     ])
     
     # Instantiate Train, Validation, and Test datasets using Early Fusion (stack_frames=True)
     print("Loading datasets...")
     train_dataset = FrameVideoDataset(split='train', transform=transform, stack_frames=True)
     val_dataset   = FrameVideoDataset(split='val', transform=transform, stack_frames=True)
-    # Assuming your metadata has a 'test.csv'. If not, replace 'test' with 'val' just to see it work.
     test_dataset  = FrameVideoDataset(split='test', transform=transform, stack_frames=True) 
 
     # 3. Setup DataLoaders
@@ -286,13 +258,12 @@ if __name__ == '__main__':
     test_loader  = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
     # 4. Initialize Model and Optimizer
-    # IMPORTANT: Ensure nn.Linear(500, NUM_CLASSES) in your Network class matches your dataset!
-    model = Network(num_frames=10).to(device)
+    model = Network(num_classes=10).to(device)
     
     # Adam optimizer is usually a good default
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    # 5. Train the Model (You will see the % after each epoch here)
+    # 5. Train the Model 
     print("\nStarting Training...")
     train_accs, val_accs = train_model_and_validate(
         model=model, 
@@ -301,18 +272,16 @@ if __name__ == '__main__':
         dataset_val=val_dataset, 
         dataloader_train=train_loader, 
         dataloader_val=val_loader, 
-        num_epochs=22 # Change this to train longer
+        num_epochs=30
     )
 
     # 6. Plot the Training/Validation Curves
     plot_data(train_accs, val_accs, title='Early Fusion Accuracy')
 
-    # 7. Test the Model (Final percentage)
+    # 7. Test the Model 
     print("Evaluating on Test Set...")
     test_model(model, test_loader, test_dataset)
     
     # 8. Save the weights
     save_model_weights(model, filepath='early_fusion_weights.pt')
     print("Model weights saved!")
-    
-    
