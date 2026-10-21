@@ -1,0 +1,88 @@
+Using device: cuda
+Epoch 1/30 - Accuracy train: 26.4%	 validation: 25.8%
+Epoch 2/30 - Accuracy train: 57.8%	 validation: 47.5%
+Epoch 3/30 - Accuracy train: 78.0%	 validation: 54.2%
+Epoch 4/30 - Accuracy train: 91.0%	 validation: 74.2%
+Epoch 5/30 - Accuracy train: 97.6%	 validation: 80.8%
+Epoch 6/30 - Accuracy train: 99.8%	 validation: 83.3%
+Epoch 7/30 - Accuracy train: 99.8%	 validation: 82.5%
+Epoch 8/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 9/30 - Accuracy train: 100.0%	 validation: 85.0%
+Epoch 10/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 11/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 12/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 13/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 14/30 - Accuracy train: 100.0%	 validation: 87.5%
+Epoch 15/30 - Accuracy train: 100.0%	 validation: 85.0%
+Epoch 16/30 - Accuracy train: 100.0%	 validation: 86.7%
+Epoch 17/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 18/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 19/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 20/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 21/30 - Accuracy train: 100.0%	 validation: 86.7%
+Epoch 22/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 23/30 - Accuracy train: 100.0%	 validation: 87.5%
+Epoch 24/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 25/30 - Accuracy train: 100.0%	 validation: 87.5%
+Epoch 26/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 27/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 28/30 - Accuracy train: 100.0%	 validation: 86.7%
+Epoch 29/30 - Accuracy train: 100.0%	 validation: 85.8%
+Epoch 30/30 - Accuracy train: 100.0%	 validation: 86.7%
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@hpc.dtu.dk>
+Subject: Job 29773655: <3dcnns_groupISA> in cluster <dcc> Done
+
+Job <3dcnns_groupISA> was submitted from host <gbarlogin1> by user <s263732> in cluster <dcc> at Wed Oct 21 15:30:44 2026
+Job was executed on host(s) <4*n-62-18-13>, in queue <c02516>, as user <s263732> in cluster <dcc> at Wed Oct 21 15:31:04 2026
+</zhome/de/b/233869> was used as the home directory.
+</zhome/de/b/233869/video_classification_02516/3DCNN> was used as the working directory.
+Started at Wed Oct 21 15:31:04 2026
+Terminated at Wed Oct 21 15:38:44 2026
+Results reported at Wed Oct 21 15:38:44 2026
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+#!/bin/sh
+
+#BSUB -q c02516
+#BSUB -gpu "num=1:mode=exclusive_process"
+#BSUB -J 3dcnns_groupISA
+#BSUB -n 4
+#BSUB -R "span[hosts=1]"
+#BSUB -R "rusage[mem=20GB]"
+
+#BSUB -o OUTPUT_FILE%J.out
+#BSUB -e OUTPUT_FILE%J.err
+
+source /zhome/de/b/233869/video_class/bin/activate
+python cnns.py
+
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   285.18 sec.
+    Max Memory :                                 939 MB
+    Average Memory :                             656.33 MB
+    Total Requested Memory :                     81920.00 MB
+    Delta Memory :                               80981.00 MB
+    Max Swap :                                   -
+    Max Processes :                              6
+    Max Threads :                                17
+    Run time :                                   460 sec.
+    Turnaround time :                            480 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <OUTPUT_FILE29773655.err> for stderr output of this job.
+

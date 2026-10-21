@@ -231,7 +231,7 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
-    transform = T.Compose([T.Resize((64, 64)), T.RandomHorizontalFlip(p=0.5), T.RandomVerticalFlip(p=0.5), T.RandomRotation(270), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    transform = T.Compose([T.Resize((64, 64)), T.ToTensor(), T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
     
     dataset_train = FrameVideoDataset(root_dir=root_dir, split='train', transform=transform, stack_frames=True)
     dataset_val = FrameVideoDataset(root_dir=root_dir, split='val', transform=transform, stack_frames=True)
