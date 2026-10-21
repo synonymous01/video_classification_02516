@@ -96,6 +96,32 @@ class FrameVideoDataset(torch.utils.data.Dataset):
 
         return frames
 
+class spatial_stream(nn.Module):
+    def __init__(self, num_classes=10, num_frames):
+        super().__init__()
+        in_channels = 3 * num_frames
+        self.convolutionals = nn.Sequential(
+            # conv1
+            nn.Conv2d(in_channels, 96, kernel_size=7, stride=2),
+            nn.BatchNorm2d(96),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            # conv 2
+            nn.Conv2d(96, 256, kernel_size=5, stride=2),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            # conv 3
+            nn.Conv2d(256, 512, kernel_size=3, stride=1),
+            nn.ReLU(),
+            # conv 4
+            nn.Conv2d(512, 512, kernel_size=3, stride=1),
+            nn.ReLU(),
+            # conv 5
+            nn.Conv2d(512, 512, kernel_size=3, stride=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2)
+        )
 
 def save_plot(train_accuracies, val_accuracies, title):
     train_data = [x * 100 for x in train_accuracies]
@@ -192,7 +218,7 @@ def test_model(model, dataloader_test, device):
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
     
-    root_dir = '/dtu/datasets1/02516/ufc10'
+    root_dir = '/dtu/datasets1/02516/ufc101_noleakage'
     USE_NORMALIZATION = True
     torch.manual_seed(42)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
