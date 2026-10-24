@@ -97,7 +97,6 @@ class FrameVideoDataset(torch.utils.data.Dataset):
 
         return frames
 
-
 class CNN3D_Network(nn.Module):
     def __init__(self, num_classes=10):
         super(CNN3D_Network, self).__init__()

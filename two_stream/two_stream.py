@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 class FrameImageDataset(torch.utils.data.Dataset):
     def __init__(self, 
     #root_dir='/work3/ppar/data/ucf101',
-    root_dir='/dtu/datasets1/02516/ufc10',
+    root_dir='/dtu/datasets1/02516/ucf101_noleakage/frames',
     split='train', 
     transform=None
 ):
@@ -47,7 +47,7 @@ class FrameImageDataset(torch.utils.data.Dataset):
 class FrameVideoDataset(torch.utils.data.Dataset):
     def __init__(self, 
     #root_dir = '/work3/ppar/data/ucf101', 
-    root_dir='/dtu/datasets1/02516/ufc10',
+    root_dir='/dtu/datasets1/02516/ucf101_noleakage/flows',
     split = 'train', 
     transform = None,
     stack_frames = True
@@ -128,7 +128,6 @@ class spatial_stream(nn.Module):
             nn.Dropout(p=0.5),
             nn.Linear(4096, 2048),
             nn.Dropout(p=0.5),
-            nn.Softmax()
         )
 
     def forward(self, x):
@@ -168,13 +167,110 @@ class temporal_stream(nn.Module):
             nn.Dropout(p=0.5),
             nn.Linear(4096, 2048),
             nn.Dropout(p=0.5),
-            nn.Softmax()
         )
 
     def forward(self, x):
         x = self.convolutionals(x)
         x = self.fully_connected(x)
         return x
+
+
+class FrameFlowDataset(torch.utils.data.Dataset):
+    def __init__(self, 
+    #root_dir = '/work3/ppar/data/ucf101', 
+    root_dir='/dtu/datasets1/02516/ucf101_noleakage',
+    split = 'train', 
+    transform = None,
+    stack_frames = True
+):
+
+        self.video_paths = sorted(glob(f'{root_dir}/flows/{split}/*/*/*.avi'))
+        self.df = pd.read_csv(f'{root_dir}/metadata/{split}.csv')
+        self.split = split
+        self.transform = transform
+        self.stack_frames = stack_frames
+        
+        self.n_sampled_frames = 10
+
+    def __len__(self):
+        return len(self.video_paths)
+    
+    def _get_meta(self, attr, value):
+        return self.df.loc[self.df[attr] == value]
+
+    def __getitem__(self, idx):
+        video_path = self.video_paths[idx]
+        # video_name = video_path.split('/')[-1].split('.avi')[0]
+        video_name = video_path.split('/')[-1].split('.npy')[0]
+        video_meta = self._get_meta('video_name', video_name)
+        label = video_meta['label'].item()
+
+        # video_frames_dir = self.video_paths[idx].split('.npy')[0].replace('videos', 'frames')
+        # video_frames = self.load_frames(video_frames_dir)
+
+        # if self.transform:
+        #     frames = [self.transform(frame) for frame in video_frames]
+        # else:
+        #     frames = [T.ToTensor()(frame) for frame in video_frames]
+        
+        # if self.stack_frames:
+        #     frames = torch.stack(frames).permute(1, 0, 2, 3)
+
+        flow_np = np.load(video_path)
+
+        if flow_np.ndim == 3:
+            flow_tensor = torch.from_numpy(flow_np).permute(2, 0, 1).float()
+        else:
+            flow_tensor = torch.from_numpy(flow_np).unsqueeze(0).float()
+
+        if self.transform:
+            flow_tensor = self.transform(flow_tensor)
+
+
+        return flow_tensor, label
+    
+    def load_frames(self, frames_dir):
+        frames = []
+        for i in range(1, self.n_sampled_frames + 1):
+            frame_file = os.path.join(frames_dir, f"frame_{i}.jpg")
+            frame = Image.open(frame_file).convert("RGB")
+            frames.append(frame)
+
+        return frames
+
+
+
+class two_stream(nn.Module):
+    def __init__(self, spatialstream, temporalstream, num_classes, num_frames):
+        super().__init__()
+        self.ss = spatialstream
+        self.ts = temporalstream
+
+        self.linear_layer = nn.Sequential(
+            nn.Linear(4096, 512)
+            nn.ReLU(),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, rgb_frames, flow_stacks):
+        fs = to_vector(self.ss(rgb))
+        ft = to_vector(self.ts(flow))
+
+        return self.linear_layer(torch.cat([fs, ft], dim=1))
+
+    def freeze_backbones(self, freeze = True):
+        for m in (self.ss, self.ts):
+            for p in m.parameters():
+                p.requires_grad = not freeze
+
+    def train(self, mode=True):
+        super().train(mode)
+
+        for m in (self.ss, self.ts):
+            if not any(p.requires_grad for p in m.parameters()):
+                m.eval()
+        return self
+
 
 def save_plot(train_accuracies, val_accuracies, title):
     train_data = [x * 100 for x in train_accuracies]
